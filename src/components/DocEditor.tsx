@@ -62,6 +62,9 @@ export function DocEditor({
   const editorWrapperRef = useRef<HTMLDivElement>(null);
   const docIdRef = useRef(doc.id);
   docIdRef.current = doc.id;
+  const outlineRef = useRef<OutlineItem[]>([]);
+  const outlineTimerRef = useRef<number | null>(null);
+  const highlightTimerRef = useRef<number | null>(null);
 
   const parsedContent = (() => {
     if (!doc.content) return { type: "doc", content: [{ type: "paragraph" }] };
@@ -76,16 +79,46 @@ export function DocEditor({
     const items: OutlineItem[] = [];
     ed.state.doc.descendants((node, pos) => {
       if (node.type.name === "heading") {
-        items.push({
-          id: `heading-${pos}`,
-          level: Number(node.attrs.level ?? 1),
-          text: node.textContent,
-          pos,
-        });
+        const level = Number(node.attrs.level ?? 1);
+        if (level >= 1 && level <= 4) {
+          items.push({
+            id: `heading-${pos}`,
+            level,
+            text: node.textContent,
+            pos,
+          });
+        }
       }
     });
+
+    const prev = outlineRef.current;
+    const unchanged =
+      prev.length === items.length &&
+      prev.every(
+        (item, idx) =>
+          item.id === items[idx].id &&
+          item.level === items[idx].level &&
+          item.text === items[idx].text &&
+          item.pos === items[idx].pos
+      );
+    if (unchanged) return;
+
+    outlineRef.current = items;
     setOutline(items);
   }, []);
+
+  const scheduleOutlineExtract = useCallback(
+    (ed: Editor) => {
+      if (outlineTimerRef.current !== null) {
+        window.clearTimeout(outlineTimerRef.current);
+      }
+      outlineTimerRef.current = window.setTimeout(() => {
+        outlineTimerRef.current = null;
+        extractOutline(ed);
+      }, 180);
+    },
+    [extractOutline]
+  );
 
   const editor = useEditor(
     {
@@ -153,7 +186,7 @@ export function DocEditor({
         extractOutline(ed);
       },
       onUpdate({ editor: ed }) {
-        extractOutline(ed);
+        scheduleOutlineExtract(ed);
 
         // Slash command detection
         const { selection } = ed.state;
@@ -190,6 +223,16 @@ export function DocEditor({
     setEmojiPickerOpen(false);
     setCoverPickerOpen(false);
     setSlashState((prev) => ({ ...prev, open: false }));
+    return () => {
+      if (outlineTimerRef.current !== null) {
+        window.clearTimeout(outlineTimerRef.current);
+        outlineTimerRef.current = null;
+      }
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = null;
+      }
+    };
   }, [doc.id, doc.title]);
 
   useEffect(() => {
@@ -197,12 +240,15 @@ export function DocEditor({
     return () => onEditorReady?.(null);
   }, [editor, onEditorReady]);
 
-  // Track active heading on scroll
+  // Track active heading on scroll (per-frame via requestAnimationFrame)
   useEffect(() => {
     const scroller = scrollContainerRef.current;
     if (!scroller || !editor) return;
 
-    const onScroll = () => {
+    let rafId: number | null = null;
+
+    const updateActiveHeading = () => {
+      rafId = null;
       const headings = Array.from(
         scroller.querySelectorAll(".ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4")
       ) as HTMLElement[];
@@ -218,30 +264,57 @@ export function DocEditor({
       setActiveHeadingId(currentId);
     };
 
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(updateActiveHeading);
+    };
+
+    updateActiveHeading();
     scroller.addEventListener("scroll", onScroll, { passive: true });
-    return () => scroller.removeEventListener("scroll", onScroll);
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, [editor, outline]);
 
   const scrollToHeading = (item: OutlineItem) => {
     if (!editor) return;
     try {
       const domInfo = editor.view.domAtPos(item.pos + 1);
-      const el =
+      const rawEl =
         domInfo.node instanceof HTMLElement
           ? domInfo.node
           : domInfo.node.parentElement;
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const headingEl = rawEl?.closest("h1, h2, h3, h4") as HTMLElement | null;
+      const targetEl = headingEl ?? rawEl;
+      targetEl?.scrollIntoView({ behavior: "smooth", block: "start" });
       setActiveHeadingId(item.id);
+
+      if (targetEl) {
+        if (highlightTimerRef.current !== null) {
+          window.clearTimeout(highlightTimerRef.current);
+        }
+        targetEl.style.transition = "background-color 0.25s ease";
+        targetEl.style.backgroundColor = "#EBF1FF";
+        targetEl.style.borderRadius = "6px";
+        highlightTimerRef.current = window.setTimeout(() => {
+          targetEl.style.backgroundColor = "";
+          highlightTimerRef.current = null;
+        }, 1100);
+      }
     } catch {
       editor.chain().focus().setTextSelection(item.pos + 1).run();
     }
   };
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="relative flex-1 overflow-y-auto bg-white"
-    >
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-white">
+      <div
+        ref={scrollContainerRef}
+        className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-white"
+      >
       {/* Cover Banner */}
       {doc.cover && (
         <div
@@ -441,9 +514,11 @@ export function DocEditor({
           onClose={() => setSlashState((prev) => ({ ...prev, open: false }))}
         />
       )}
+      </div>
 
-      {/* Right Minimalist Outline TOC */}
+      {/* Right Tree Outline TOC */}
       <OutlineToc
+        docId={doc.id}
         items={outline}
         activeId={activeHeadingId}
         onSelect={scrollToHeading}
