@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/react";
+import { FileQuestion, Home, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createDoc,
@@ -14,6 +15,7 @@ import { SearchModal } from "./components/SearchModal";
 import { Sidebar } from "./components/Sidebar";
 import { TopHeader } from "./components/TopHeader";
 import { TrashModal } from "./components/TrashModal";
+import { buildDocPath, buildSearchPath, useRoute } from "./router";
 import type { Doc, SaveStatus, UserInfo, ViewMode } from "./types";
 import {
   buildDocTree,
@@ -23,31 +25,63 @@ import {
 } from "./utils/docTree";
 
 export function App() {
+  const { route, pathWithSearch, navigate } = useRoute();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeDocId, setActiveDocId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("doc");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(264);
   const [wideMode, setWideMode] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [trashOpen, setTrashOpen] = useState(false);
+
+  // Keep track of the last non-modal view so /search and /trash modals render over it
+  // and closing them returns to the previous URL.
+  const lastBgPathRef = useRef<string>("/");
+  const [bgView, setBgView] = useState<{ viewMode: ViewMode; docId: string | null }>({
+    viewMode: "home",
+    docId: null,
+  });
 
   const editorRef = useRef<Editor | null>(null);
   const saveTimers = useRef<Map<string, number>>(new Map());
   const pendingPatches = useRef<Map<string, Partial<Doc>>>(new Map());
+
+  // Backward compatibility: redirect legacy /?doc=<id> to /doc/<id>
+  useEffect(() => {
+    if (route.name === "home") {
+      const legacyDoc = new URLSearchParams(window.location.search).get("doc");
+      if (legacyDoc) {
+        navigate(buildDocPath(legacyDoc), { replace: true });
+      }
+    }
+  }, [route.name, navigate]);
+
+  useEffect(() => {
+    if (route.name === "home" || route.name === "recent" || route.name === "favorites") {
+      lastBgPathRef.current = pathWithSearch;
+      setBgView({ viewMode: route.name, docId: null });
+    } else if (route.name === "doc") {
+      lastBgPathRef.current = pathWithSearch;
+      setBgView({ viewMode: "doc", docId: route.docId });
+    }
+  }, [route, pathWithSearch]);
+
+  const searchOpen = route.name === "search";
+  const trashOpen = route.name === "trash";
+  const viewMode: ViewMode =
+    route.name === "doc"
+      ? "doc"
+      : route.name === "home" || route.name === "recent" || route.name === "favorites"
+      ? route.name
+      : bgView.viewMode;
+  const activeDocId: string | null =
+    route.name === "doc" ? route.docId : viewMode === "doc" ? bgView.docId : null;
 
   const loadAll = useCallback(async () => {
     try {
       const [me, docList] = await Promise.all([fetchMe(), fetchDocs(false)]);
       setUser(me);
       setDocs(docList);
-      setActiveDocId((curr) => {
-        if (curr && docList.some((d) => d.id === curr)) return curr;
-        return docList[0]?.id ?? null;
-      });
     } finally {
       setLoading(false);
     }
@@ -62,27 +96,69 @@ export function App() {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen((v) => !v);
+        if (route.name === "search") {
+          navigate(lastBgPathRef.current || "/");
+        } else {
+          navigate("/search");
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [route.name, navigate]);
 
   const tree = useMemo(() => buildDocTree(docs), [docs]);
   const activeDoc = useMemo(
-    () => docs.find((d) => d.id === activeDocId) ?? null,
+    () => (activeDocId ? docs.find((d) => d.id === activeDocId) ?? null : null),
     [docs, activeDocId]
   );
   const breadcrumbs = useMemo(
-    () => (activeDocId ? getBreadcrumbs(docs, activeDocId) : []),
-    [docs, activeDocId]
+    () => (activeDoc ? getBreadcrumbs(docs, activeDoc.id) : []),
+    [docs, activeDoc]
   );
 
-  const handleSelectDoc = (id: string) => {
-    setActiveDocId(id);
-    setViewMode("doc");
-  };
+  // Sync document.title with current route / active document
+  useEffect(() => {
+    if (route.name === "doc") {
+      if (loading) {
+        document.title = "Lark Docs";
+      } else if (activeDoc) {
+        document.title = `${activeDoc.title || "无标题文档"} · Lark Docs`;
+      } else {
+        document.title = "文档不存在 · Lark Docs";
+      }
+    } else if (route.name === "home") {
+      document.title = "主页 · Lark Docs";
+    } else if (route.name === "recent") {
+      document.title = "最近编辑 · Lark Docs";
+    } else if (route.name === "favorites") {
+      document.title = "收藏夹 · Lark Docs";
+    } else if (route.name === "trash") {
+      document.title = "回收站 · Lark Docs";
+    } else if (route.name === "search") {
+      document.title = route.query ? `搜索: ${route.query} · Lark Docs` : "搜索 · Lark Docs";
+    } else {
+      document.title = "页面不存在 · Lark Docs";
+    }
+  }, [route, activeDoc, loading]);
+
+  const handleSelectDoc = useCallback(
+    (id: string) => {
+      navigate(buildDocPath(id));
+    },
+    [navigate]
+  );
+
+  const handleSelectView = useCallback(
+    (mode: ViewMode) => {
+      if (mode === "home") navigate("/");
+      else if (mode === "recent") navigate("/recent");
+      else if (mode === "favorites") navigate("/favorites");
+      else if (activeDocId) navigate(buildDocPath(activeDocId));
+      else navigate("/");
+    },
+    [navigate, activeDocId]
+  );
 
   const handleCreateDoc = async (parentId: string | null = null) => {
     const created = await createDoc({
@@ -90,8 +166,7 @@ export function App() {
       title: "无标题文档",
     });
     setDocs((prev) => [...prev, created]);
-    setActiveDocId(created.id);
-    setViewMode("doc");
+    navigate(buildDocPath(created.id));
   };
 
   const handleChangeDoc = useCallback(
@@ -146,8 +221,7 @@ export function App() {
   const handleDuplicateDoc = async (id: string) => {
     const copy = await duplicateDoc(id);
     setDocs((prev) => [...prev, copy]);
-    setActiveDocId(copy.id);
-    setViewMode("doc");
+    navigate(buildDocPath(copy.id));
   };
 
   const handleToggleFavorite = async (doc: Doc) => {
@@ -162,8 +236,8 @@ export function App() {
     await deleteDoc(id, false);
     const refreshed = await fetchDocs(false);
     setDocs(refreshed);
-    if (activeDocId === id || !refreshed.some((d) => d.id === activeDocId)) {
-      setActiveDocId(refreshed[0]?.id ?? null);
+    if (route.name === "doc" && !refreshed.some((d) => d.id === route.docId)) {
+      navigate("/");
     }
   };
 
@@ -217,15 +291,16 @@ ${innerHtml}
         tree={tree}
         activeDocId={activeDocId}
         viewMode={viewMode}
-        onSelectView={setViewMode}
+        onSelectView={handleSelectView}
         onSelectDoc={handleSelectDoc}
         onCreateDoc={handleCreateDoc}
         onRenameDoc={handleRenameDoc}
         onDuplicateDoc={handleDuplicateDoc}
         onToggleFavorite={handleToggleFavorite}
         onDeleteDoc={handleDeleteDoc}
-        onOpenSearch={() => setSearchOpen(true)}
-        onOpenTrash={() => setTrashOpen(true)}
+        onOpenSearch={() => navigate("/search")}
+        onOpenTrash={() => navigate("/trash")}
+        trashOpen={trashOpen}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -245,7 +320,24 @@ ${innerHtml}
           user={user}
         />
 
-        {viewMode !== "doc" ? (
+        {route.name === "not_found" ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5F6F7] text-[#8F959E]">
+              <FileQuestion className="h-6 w-6" />
+            </div>
+            <h2 className="text-base font-semibold text-[#1F2329]">404 · 页面不存在</h2>
+            <p className="max-w-sm text-sm text-[#646A73]">
+              未找到路径 <code className="rounded bg-[#F2F3F5] px-1.5 py-0.5 text-xs">{route.path}</code>
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-[#3370FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#2860E1] cursor-pointer"
+            >
+              <Home className="h-4 w-4" /> 返回主页
+            </button>
+          </div>
+        ) : viewMode !== "doc" ? (
           <DashboardViews
             mode={viewMode}
             docs={docs}
@@ -262,15 +354,30 @@ ${innerHtml}
             }}
           />
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-[#8F959E]">
-            <p>暂无文档，点击下方按钮创建第一篇文档</p>
-            <button
-              type="button"
-              onClick={() => handleCreateDoc(null)}
-              className="rounded-lg bg-[#3370FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#2860E1] cursor-pointer"
-            >
-              新建文档
-            </button>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5F6F7] text-[#8F959E]">
+              <FileQuestion className="h-6 w-6" />
+            </div>
+            <h2 className="text-base font-semibold text-[#1F2329]">文档不存在或已被移入回收站</h2>
+            <p className="max-w-sm text-sm text-[#646A73]">
+              该文档可能已被删除，或链接地址无效。你可以返回主页，或前往回收站恢复文档。
+            </p>
+            <div className="mt-1 flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#3370FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#2860E1] cursor-pointer"
+              >
+                <Home className="h-4 w-4" /> 返回主页
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/trash")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#DEE0E3] bg-white px-4 py-2 text-sm font-medium text-[#1F2329] hover:bg-[#F5F6F7] cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4 text-[#646A73]" /> 打开回收站
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -278,13 +385,15 @@ ${innerHtml}
       <SearchModal
         open={searchOpen}
         docs={docs}
-        onClose={() => setSearchOpen(false)}
+        initialQuery={route.name === "search" ? route.query : ""}
+        onQueryChange={(q) => navigate(buildSearchPath(q), { replace: true })}
+        onClose={() => navigate(lastBgPathRef.current || "/")}
         onSelect={handleSelectDoc}
       />
 
       <TrashModal
         open={trashOpen}
-        onClose={() => setTrashOpen(false)}
+        onClose={() => navigate(lastBgPathRef.current || "/")}
         onRestored={loadAll}
       />
     </div>

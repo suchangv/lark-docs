@@ -31,6 +31,7 @@ interface SidebarProps {
   onDeleteDoc: (id: string) => void;
   onOpenSearch: () => void;
   onOpenTrash: () => void;
+  trashOpen?: boolean;
 }
 
 function TreeNodeItem({
@@ -236,10 +237,37 @@ export function Sidebar({
   onDeleteDoc,
   onOpenSearch,
   onOpenTrash,
+  trashOpen = false,
 }: SidebarProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(["welcome-lark-docs"])
   );
+
+  useEffect(() => {
+    if (!activeDocId) return;
+    const findAncestors = (nodes: DocTreeNode[], targetId: string, path: string[]): string[] | null => {
+      for (const n of nodes) {
+        if (n.id === targetId) return path;
+        const found = findAncestors(n.children, targetId, [...path, n.id]);
+        if (found) return found;
+      }
+      return null;
+    };
+    const ancestors = findAncestors(tree, activeDocId, []);
+    if (ancestors && ancestors.length > 0) {
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const id of ancestors) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, [activeDocId, tree]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -388,7 +416,11 @@ export function Sidebar({
         <button
           type="button"
           onClick={onOpenTrash}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] transition-colors cursor-pointer"
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors cursor-pointer ${
+            trashOpen
+              ? "bg-[#EBF1FF] text-[#3370FF] font-medium"
+              : "text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329]"
+          }`}
         >
           <Trash2 className="h-4 w-4" />
           回收站

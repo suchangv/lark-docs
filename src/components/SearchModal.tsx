@@ -6,22 +6,31 @@ import { extractPlainText, formatRelativeTime } from "../utils/docTree";
 interface SearchModalProps {
   open: boolean;
   docs: Doc[];
+  initialQuery?: string;
+  onQueryChange?: (query: string) => void;
   onClose: () => void;
   onSelect: (id: string) => void;
 }
 
-export function SearchModal({ open, docs, onClose, onSelect }: SearchModalProps) {
-  const [query, setQuery] = useState("");
+export function SearchModal({
+  open,
+  docs,
+  initialQuery = "",
+  onQueryChange,
+  onClose,
+  onSelect,
+}: SearchModalProps) {
+  const [query, setQuery] = useState(initialQuery);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
-      setQuery("");
+      setQuery(initialQuery);
       setSelectedIdx(0);
       setTimeout(() => inputRef.current?.focus(), 20);
     }
-  }, [open]);
+  }, [open, initialQuery]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,7 +70,6 @@ export function SearchModal({ open, docs, onClose, onSelect }: SearchModalProps)
       } else if (e.key === "Enter" && results[selectedIdx]) {
         e.preventDefault();
         onSelect(results[selectedIdx].doc.id);
-        onClose();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -84,7 +92,11 @@ export function SearchModal({ open, docs, onClose, onSelect }: SearchModalProps)
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setQuery(next);
+              onQueryChange?.(next);
+            }}
             placeholder="搜索文档标题或正文内容..."
             className="flex-1 text-sm text-[#1F2329] placeholder-[#8F959E] outline-none"
           />
@@ -110,7 +122,6 @@ export function SearchModal({ open, docs, onClose, onSelect }: SearchModalProps)
                 onMouseEnter={() => setSelectedIdx(idx)}
                 onClick={() => {
                   onSelect(doc.id);
-                  onClose();
                 }}
                 className={`flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors cursor-pointer ${
                   idx === selectedIdx ? "bg-[#EBF1FF]" : "hover:bg-[#F5F6F7]"

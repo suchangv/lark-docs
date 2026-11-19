@@ -40,7 +40,7 @@ export interface DocSummary {
 export function buildDocUrl(baseUrl: string | undefined, id: string): string | undefined {
 	const trimmed = baseUrl?.trim().replace(/\/+$/, "");
 	if (!trimmed) return undefined;
-	return `${trimmed}/?doc=${encodeURIComponent(id)}`;
+	return `${trimmed}/doc/${encodeURIComponent(id)}`;
 }
 
 export function toDocSummary(row: DocRow, publicBaseUrl?: string): DocSummary {

@@ -394,6 +394,10 @@ export default {
 			}
 		}
 
+		if (request.method !== "GET" && request.method !== "HEAD") {
+			return json({ error: "Method not allowed" }, 405);
+		}
+
 		const assetRes = await env.ASSETS.fetch(request);
 		if (assetRes.status === 404 && !url.pathname.includes(".")) {
 			const indexRes = await env.ASSETS.fetch(new Request(new URL("/", request.url), request));
