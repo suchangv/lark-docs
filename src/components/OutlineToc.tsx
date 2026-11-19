@@ -2,8 +2,6 @@ import { ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { OutlineItem } from "../types";
 
-const OUTLINE_COLLAPSED_KEY = "lark-docs:outline-collapsed";
-
 export interface OutlineTreeNode extends OutlineItem {
   children: OutlineTreeNode[];
 }
@@ -117,13 +115,9 @@ function OutlineTreeItem({
 }
 
 export function OutlineToc({ docId, items, activeId, onSelect }: OutlineTocProps) {
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(OUTLINE_COLLAPSED_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Always default to expanded; collapsed is session/page-local only (never persisted)
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
   const tree = useMemo(() => buildOutlineTree(items), [items]);
@@ -142,8 +136,10 @@ export function OutlineToc({ docId, items, activeId, onSelect }: OutlineTocProps
     return map;
   }, [tree]);
 
-  // Reset expanded state when switching documents (children collapsed by default)
+  // Reset outline state when switching documents (always expanded by default, children collapsed)
   useEffect(() => {
+    setCollapsed(false);
+    setMobileOpen(false);
     setExpandedIds(new Set());
   }, [docId]);
 
@@ -164,18 +160,6 @@ export function OutlineToc({ docId, items, activeId, onSelect }: OutlineTocProps
     });
   }, [activeId, ancestorMap]);
 
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(OUTLINE_COLLAPSED_KEY, String(next));
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
-  };
-
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -188,38 +172,16 @@ export function OutlineToc({ docId, items, activeId, onSelect }: OutlineTocProps
     });
   };
 
-  if (collapsed) {
-    return (
-      <aside
-        aria-label="大纲（已收起）"
-        className="hidden lg:flex w-9 shrink-0 flex-col items-center border-l border-[#DEE0E3] bg-[#FAFAFA] py-3"
-      >
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          title="展开大纲"
-          aria-label="展开大纲"
-          className="flex flex-col items-center gap-2 rounded-md px-1.5 py-2 text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] transition-colors cursor-pointer"
-        >
-          <PanelRightOpen className="h-4 w-4" />
-          <span className="text-[11px] tracking-widest [writing-mode:vertical-rl]">
-            大纲
-          </span>
-        </button>
-      </aside>
-    );
-  }
-
-  return (
+  const renderPanel = (onCollapse: () => void, visibilityClass: string) => (
     <aside
       aria-label="大纲"
-      className="hidden lg:flex w-60 shrink-0 flex-col border-l border-[#DEE0E3] bg-[#FAFAFA]/70"
+      className={`${visibilityClass} absolute right-6 top-6 z-20 w-60 max-h-[70vh] flex-col rounded-xl bg-white/95 shadow-lg backdrop-blur`}
     >
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#DEE0E3]/70 px-3.5">
+      <div className="flex h-10 shrink-0 items-center justify-between px-3.5 pt-1">
         <span className="text-[13px] font-medium text-[#1F2329]">大纲</span>
         <button
           type="button"
-          onClick={toggleCollapsed}
+          onClick={onCollapse}
           title="收起大纲"
           aria-label="收起大纲"
           className="flex h-6 w-6 items-center justify-center rounded-md text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] transition-colors cursor-pointer"
@@ -228,9 +190,9 @@ export function OutlineToc({ docId, items, activeId, onSelect }: OutlineTocProps
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2.5">
+      <div className="flex-1 overflow-y-auto px-2 pb-2.5 pt-0.5">
         {tree.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="flex flex-col items-center justify-center py-10 text-center">
             <p className="text-xs text-[#8F959E]">暂无大纲</p>
           </div>
         ) : (
@@ -250,5 +212,31 @@ export function OutlineToc({ docId, items, activeId, onSelect }: OutlineTocProps
         )}
       </div>
     </aside>
+  );
+
+  const renderExpandButton = (onExpand: () => void, visibilityClass: string) => (
+    <button
+      type="button"
+      onClick={onExpand}
+      title="展开大纲"
+      aria-label="展开大纲"
+      className={`${visibilityClass} absolute right-6 top-6 z-20 h-9 w-9 items-center justify-center rounded-xl bg-white/95 text-[#646A73] shadow-lg backdrop-blur hover:bg-[#EFF0F1] hover:text-[#1F2329] transition-colors cursor-pointer`}
+    >
+      <PanelRightOpen className="h-4 w-4" />
+    </button>
+  );
+
+  return (
+    <>
+      {/* Desktop (>=1024px): expanded by default, single button when collapsed */}
+      {collapsed
+        ? renderExpandButton(() => setCollapsed(false), "hidden lg:flex")
+        : renderPanel(() => setCollapsed(true), "hidden lg:flex")}
+
+      {/* Narrow screens (<1024px): hidden by default to avoid covering content, button always clickable */}
+      {mobileOpen
+        ? renderPanel(() => setMobileOpen(false), "flex lg:hidden")
+        : renderExpandButton(() => setMobileOpen(true), "flex lg:hidden")}
+    </>
   );
 }

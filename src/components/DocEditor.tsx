@@ -125,7 +125,7 @@ export function DocEditor({
       extensions: [
         StarterKit.configure({
           codeBlock: false,
-          heading: { levels: [1, 2, 3, 4] },
+          heading: { levels: [1, 2, 3, 4, 5, 6] },
         }),
         Placeholder.configure({
           placeholder: ({ node }) =>
@@ -310,7 +310,7 @@ export function DocEditor({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden bg-white">
+    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-white">
       <div
         ref={scrollContainerRef}
         className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-white"

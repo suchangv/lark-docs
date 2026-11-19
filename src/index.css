@@ -107,6 +107,24 @@
   color: #1f2329;
 }
 
+.lark-editor .ProseMirror h5 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.55;
+  margin-top: 0.85em;
+  margin-bottom: 0.2em;
+  color: #1f2329;
+}
+
+.lark-editor .ProseMirror h6 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.6;
+  margin-top: 0.8em;
+  margin-bottom: 0.2em;
+  color: #646a73;
+}
+
 .lark-editor .ProseMirror ul:not([data-type="taskList"]) {
   list-style-type: disc;
   padding-left: 1.5rem;
