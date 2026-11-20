@@ -15,6 +15,7 @@ import { SearchModal } from "./components/SearchModal";
 import { Sidebar } from "./components/Sidebar";
 import { TopHeader } from "./components/TopHeader";
 import { TrashModal } from "./components/TrashModal";
+import { useIsMobile } from "./hooks/useViewport";
 import { buildDocPath, buildSearchPath, useRoute } from "./router";
 import type { Doc, SaveStatus, UserInfo, ViewMode } from "./types";
 import {
@@ -26,13 +27,28 @@ import {
 
 export function App() {
   const { route, pathWithSearch, navigate } = useRoute();
+  const isMobile = useIsMobile();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 768 : true
+  );
   const [sidebarWidth, setSidebarWidth] = useState(264);
   const [wideMode, setWideMode] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [mobileOutlineOpen, setMobileOutlineOpen] = useState(false);
+  const prevIsMobileRef = useRef(isMobile);
+
+  useEffect(() => {
+    if (prevIsMobileRef.current !== isMobile) {
+      prevIsMobileRef.current = isMobile;
+      setSidebarOpen(!isMobile);
+      if (!isMobile) {
+        setMobileOutlineOpen(false);
+      }
+    }
+  }, [isMobile]);
 
   // Keep track of the last non-modal view so /search and /trash modals render over it
   // and closing them returns to the previous URL.
@@ -142,25 +158,38 @@ export function App() {
     }
   }, [route, activeDoc, loading]);
 
+  const closeSidebarOnMobile = useCallback(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    setMobileOutlineOpen(false);
+  }, [activeDocId, viewMode]);
+
   const handleSelectDoc = useCallback(
     (id: string) => {
+      closeSidebarOnMobile();
       navigate(buildDocPath(id));
     },
-    [navigate]
+    [navigate, closeSidebarOnMobile]
   );
 
   const handleSelectView = useCallback(
     (mode: ViewMode) => {
+      closeSidebarOnMobile();
       if (mode === "home") navigate("/");
       else if (mode === "recent") navigate("/recent");
       else if (mode === "favorites") navigate("/favorites");
       else if (activeDocId) navigate(buildDocPath(activeDocId));
       else navigate("/");
     },
-    [navigate, activeDocId]
+    [navigate, activeDocId, closeSidebarOnMobile]
   );
 
   const handleCreateDoc = async (parentId: string | null = null) => {
+    closeSidebarOnMobile();
     const created = await createDoc({
       parentId,
       title: "无标题文档",
@@ -219,6 +248,7 @@ export function App() {
   };
 
   const handleDuplicateDoc = async (id: string) => {
+    closeSidebarOnMobile();
     const copy = await duplicateDoc(id);
     setDocs((prev) => [...prev, copy]);
     navigate(buildDocPath(copy.id));
@@ -254,6 +284,7 @@ export function App() {
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${activeDoc.title || "无标题文档"}</title>
 <style>
   body { max-width: 760px; margin: 48px auto; padding: 0 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; color: #1F2329; line-height: 1.75; }
@@ -276,16 +307,18 @@ ${innerHtml}
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white text-sm text-[#8F959E]">
+      <div className="flex h-dvh w-full items-center justify-center bg-white text-sm text-[#8F959E]">
         正在加载 Lark Docs...
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white text-[#1F2329]">
+    <div className="flex h-dvh w-full overflow-hidden bg-white text-[#1F2329]">
       <Sidebar
         open={sidebarOpen}
+        isMobile={isMobile}
+        onClose={() => setSidebarOpen(false)}
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
         tree={tree}
@@ -298,8 +331,14 @@ ${innerHtml}
         onDuplicateDoc={handleDuplicateDoc}
         onToggleFavorite={handleToggleFavorite}
         onDeleteDoc={handleDeleteDoc}
-        onOpenSearch={() => navigate("/search")}
-        onOpenTrash={() => navigate("/trash")}
+        onOpenSearch={() => {
+          closeSidebarOnMobile();
+          navigate("/search");
+        }}
+        onOpenTrash={() => {
+          closeSidebarOnMobile();
+          navigate("/trash");
+        }}
         trashOpen={trashOpen}
       />
 
@@ -317,6 +356,12 @@ ${innerHtml}
           onToggleFavorite={handleToggleFavorite}
           onExportMarkdown={handleExportMarkdown}
           onExportHtml={handleExportHtml}
+          onOpenSearch={() => {
+            closeSidebarOnMobile();
+            navigate("/search");
+          }}
+          mobileOutlineOpen={mobileOutlineOpen}
+          onToggleMobileOutline={() => setMobileOutlineOpen((v) => !v)}
           user={user}
         />
 
@@ -348,6 +393,9 @@ ${innerHtml}
           <DocEditor
             doc={activeDoc}
             wideMode={wideMode}
+            isMobile={isMobile}
+            mobileOutlineOpen={mobileOutlineOpen}
+            onMobileOutlineOpenChange={setMobileOutlineOpen}
             onChangeDoc={handleChangeDoc}
             onEditorReady={(ed) => {
               editorRef.current = ed;

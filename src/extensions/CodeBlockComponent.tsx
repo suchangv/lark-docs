@@ -38,7 +38,7 @@ export function CodeBlockComponent({ node, updateAttributes }: NodeViewProps) {
         <select
           value={language}
           onChange={(e) => updateAttributes({ language: e.target.value })}
-          className="bg-transparent font-medium text-[#646A73] outline-none cursor-pointer hover:text-[#1F2329]"
+          className="bg-transparent text-base sm:text-xs font-medium text-[#646A73] outline-none cursor-pointer hover:text-[#1F2329]"
         >
           {LANGUAGES.map((l) => (
             <option key={l.value} value={l.value}>
@@ -50,7 +50,7 @@ export function CodeBlockComponent({ node, updateAttributes }: NodeViewProps) {
         <button
           type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-[#646A73] hover:bg-black/5 hover:text-[#1F2329] transition-colors cursor-pointer"
+          className="flex items-center gap-1 rounded px-2 py-1 sm:py-0.5 text-xs text-[#646A73] hover:bg-black/5 hover:text-[#1F2329] transition-colors cursor-pointer"
         >
           {copied ? (
             <>
@@ -65,7 +65,7 @@ export function CodeBlockComponent({ node, updateAttributes }: NodeViewProps) {
           )}
         </button>
       </div>
-      <pre className="!m-0 !border-0 !rounded-none !bg-transparent px-4 py-3 text-sm font-mono overflow-x-auto">
+      <pre className="!m-0 !border-0 !rounded-none !bg-transparent px-3 py-2.5 sm:px-4 sm:py-3 text-[13px] sm:text-sm font-mono overflow-x-auto">
         <NodeViewContent as="code" />
       </pre>
     </NodeViewWrapper>

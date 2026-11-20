@@ -14,8 +14,10 @@ import {
   Pilcrow,
   Quote,
   Table,
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useVisualViewport } from "../hooks/useViewport";
 
 export interface SlashCommandItem {
   id: string;
@@ -221,6 +223,8 @@ export function SlashCommandMenu({
   onClose,
 }: SlashCommandMenuProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const vv = useVisualViewport();
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -236,6 +240,16 @@ export function SlashCommandMenu({
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
+
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [onClose]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -262,17 +276,43 @@ export function SlashCommandMenu({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [editor, items, selectedIndex, range, onClose]);
 
+  const menuWidth = Math.min(272, Math.max(200, vv.width - 24));
+  const left = Math.max(12, Math.min(position.left, vv.width - menuWidth - 12));
+  const vvTop = vv.offsetTop;
+  const vvBottom = vv.offsetTop + vv.height;
+  const bottomReserve = vv.width < 768 ? 58 : 12;
+  const spaceBelow = vvBottom - position.top - bottomReserve;
+  const anchorTopOfCursor = position.top - 30;
+  const spaceAbove = anchorTopOfCursor - vvTop - 12;
+  const flipUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+  const maxHeight = Math.max(120, Math.min(320, flipUp ? spaceAbove : spaceBelow));
+  const top = flipUp
+    ? Math.min(vvBottom - bottomReserve, Math.max(vvTop + 12 + maxHeight, anchorTopOfCursor))
+    : Math.max(vvTop + 12, Math.min(position.top, vvBottom - maxHeight - bottomReserve));
+
   return (
     <div
-      className="fixed z-50 w-68 max-h-80 overflow-y-auto rounded-xl border border-[#DEE0E3] bg-white p-1.5 shadow-xl"
+      ref={menuRef}
+      className="fixed z-50 overflow-y-auto overscroll-contain rounded-xl border border-[#DEE0E3] bg-white p-1.5 shadow-xl"
       style={{
-        top: Math.min(position.top, window.innerHeight - 330),
-        left: Math.min(position.left, window.innerWidth - 290),
+        width: menuWidth,
+        maxHeight,
+        top,
+        left,
+        transform: flipUp ? "translateY(-100%)" : undefined,
       }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <div className="px-2.5 py-1 text-[11px] font-medium text-[#8F959E]">
-        插入块 {query ? `· "${query}"` : ""}
+      <div className="flex items-center justify-between px-2.5 py-1 text-[11px] font-medium text-[#8F959E]">
+        <span>插入块 {query ? `· "${query}"` : ""}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="关闭菜单"
+          className="rounded p-1 text-[#8F959E] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
       {items.length === 0 ? (
         <div className="px-3 py-4 text-center text-xs text-[#8F959E]">
@@ -288,7 +328,7 @@ export function SlashCommandMenu({
               onClose();
             }}
             onMouseEnter={() => setSelectedIndex(idx)}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 sm:py-1.5 text-left transition-colors cursor-pointer ${
               idx === selectedIndex ? "bg-[#EBF1FF] text-[#3370FF]" : "hover:bg-[#F5F6F7] text-[#1F2329]"
             }`}
           >

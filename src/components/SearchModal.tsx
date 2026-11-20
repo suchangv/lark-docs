@@ -80,15 +80,15 @@ export function SearchModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 pt-20 backdrop-blur-[1px]"
-      onMouseDown={onClose}
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-3 pt-4 sm:p-4 sm:pt-20 backdrop-blur-[1px]"
+      onPointerDown={onClose}
     >
       <div
         className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#DEE0E3] bg-white shadow-2xl"
-        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2.5 border-b border-[#DEE0E3] px-4 py-3">
-          <Search className="h-4 w-4 text-[#8F959E]" />
+        <div className="flex items-center gap-2 border-b border-[#DEE0E3] px-3.5 py-2.5 sm:px-4 sm:py-3">
+          <Search className="h-4 w-4 shrink-0 text-[#8F959E]" />
           <input
             ref={inputRef}
             value={query}
@@ -98,18 +98,33 @@ export function SearchModal({
               onQueryChange?.(next);
             }}
             placeholder="搜索文档标题或正文内容..."
-            className="flex-1 text-sm text-[#1F2329] placeholder-[#8F959E] outline-none"
+            className="min-w-0 flex-1 text-base sm:text-sm text-[#1F2329] placeholder-[#8F959E] outline-none"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                onQueryChange?.("");
+                inputRef.current?.focus();
+              }}
+              aria-label="清空搜索"
+              className="rounded-md px-2 py-1 text-xs text-[#8F959E] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer shrink-0"
+            >
+              清空
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-[#8F959E] hover:bg-[#EFF0F1] cursor-pointer"
+            aria-label="关闭搜索"
+            className="rounded-lg p-1.5 sm:p-1 text-[#8F959E] hover:bg-[#EFF0F1] cursor-pointer shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="max-h-96 overflow-y-auto p-2">
+        <div className="max-h-[60dvh] sm:max-h-96 overflow-y-auto overscroll-contain p-2">
           {results.length === 0 ? (
             <div className="py-12 text-center text-sm text-[#8F959E]">
               没有找到匹配的文档

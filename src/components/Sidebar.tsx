@@ -11,12 +11,15 @@ import {
   Search,
   Star,
   Trash2,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Doc, DocTreeNode, ViewMode } from "../types";
 
 interface SidebarProps {
   open: boolean;
+  isMobile: boolean;
+  onClose: () => void;
   width: number;
   onWidthChange: (w: number) => void;
   tree: DocTreeNode[];
@@ -37,6 +40,7 @@ interface SidebarProps {
 function TreeNodeItem({
   node,
   depth,
+  isMobile,
   activeDocId,
   viewMode,
   expandedIds,
@@ -50,6 +54,7 @@ function TreeNodeItem({
 }: {
   node: DocTreeNode;
   depth: number;
+  isMobile: boolean;
   activeDocId: string | null;
   viewMode: ViewMode;
   expandedIds: Set<string>;
@@ -62,6 +67,7 @@ function TreeNodeItem({
   onDeleteDoc: (id: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpenUp, setMenuOpenUp] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedIds.has(node.id);
@@ -69,24 +75,26 @@ function TreeNodeItem({
 
   useEffect(() => {
     if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
     };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
   }, [menuOpen]);
+
+  const indentPx = isMobile ? 8 + Math.min(depth, 4) * 12 : 8 + depth * 14;
 
   return (
     <div>
       <div
-        className={`group relative flex items-center gap-1 rounded-lg pr-1.5 py-1 text-[13.5px] transition-colors cursor-pointer select-none ${
+        className={`group relative flex items-center gap-1 rounded-lg pr-1.5 py-2 md:py-1 text-[14px] md:text-[13.5px] transition-colors cursor-pointer select-none ${
           isActive
             ? "bg-[#EBF1FF] text-[#3370FF] font-medium"
-            : "text-[#1F2329] hover:bg-[#EFF0F1]"
+            : "text-[#1F2329] hover:bg-[#EFF0F1] active:bg-[#E5E6EB]"
         }`}
-        style={{ paddingLeft: `${8 + depth * 14}px` }}
+        style={{ paddingLeft: `${indentPx}px` }}
         onClick={() => onSelectDoc(node.id)}
       >
         <button
@@ -95,7 +103,7 @@ function TreeNodeItem({
             e.stopPropagation();
             if (hasChildren) toggleExpand(node.id);
           }}
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-black/5 ${
+          className={`flex h-6 w-6 md:h-5 md:w-5 shrink-0 items-center justify-center rounded hover:bg-black/5 ${
             hasChildren ? "text-[#8F959E]" : "opacity-0 pointer-events-none"
           }`}
         >
@@ -116,7 +124,7 @@ function TreeNodeItem({
 
         <div
           className={`flex items-center gap-0.5 ${
-            menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            isMobile || menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           } transition-opacity`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -127,7 +135,7 @@ function TreeNodeItem({
               if (!isExpanded && hasChildren) toggleExpand(node.id);
               onCreateDoc(node.id);
             }}
-            className="flex h-6 w-6 items-center justify-center rounded text-[#646A73] hover:bg-black/8 hover:text-[#1F2329] cursor-pointer"
+            className="flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded text-[#646A73] hover:bg-black/8 hover:text-[#1F2329] cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -136,21 +144,29 @@ function TreeNodeItem({
             <button
               type="button"
               title="更多操作"
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex h-6 w-6 items-center justify-center rounded text-[#646A73] hover:bg-black/8 hover:text-[#1F2329] cursor-pointer"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMenuOpenUp(window.innerHeight - rect.bottom < 180);
+                setMenuOpen((v) => !v);
+              }}
+              className="flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded text-[#646A73] hover:bg-black/8 hover:text-[#1F2329] cursor-pointer"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-7 z-50 w-40 rounded-xl border border-[#DEE0E3] bg-white p-1 shadow-xl text-[#1F2329]">
+              <div
+                className={`absolute right-0 ${
+                  menuOpenUp ? "bottom-8" : "top-8 md:top-7"
+                } z-50 w-40 rounded-xl border border-[#DEE0E3] bg-white p-1 shadow-xl text-[#1F2329]`}
+              >
                 <button
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
                     onRenameDoc(node);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs hover:bg-[#F5F6F7] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 md:py-1.5 text-xs hover:bg-[#F5F6F7] cursor-pointer"
                 >
                   <Pencil className="h-3.5 w-3.5 text-[#646A73]" /> 重命名
                 </button>
@@ -160,7 +176,7 @@ function TreeNodeItem({
                     setMenuOpen(false);
                     onDuplicateDoc(node.id);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs hover:bg-[#F5F6F7] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 md:py-1.5 text-xs hover:bg-[#F5F6F7] cursor-pointer"
                 >
                   <Copy className="h-3.5 w-3.5 text-[#646A73]" /> 创建副本
                 </button>
@@ -170,7 +186,7 @@ function TreeNodeItem({
                     setMenuOpen(false);
                     onToggleFavorite(node);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs hover:bg-[#F5F6F7] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 md:py-1.5 text-xs hover:bg-[#F5F6F7] cursor-pointer"
                 >
                   <Star
                     className={`h-3.5 w-3.5 ${
@@ -186,7 +202,7 @@ function TreeNodeItem({
                     setMenuOpen(false);
                     onDeleteDoc(node.id);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[#F54A45] hover:bg-[#FFF0F0] cursor-pointer"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 md:py-1.5 text-xs text-[#F54A45] hover:bg-[#FFF0F0] cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> 移入回收站
                 </button>
@@ -203,6 +219,7 @@ function TreeNodeItem({
               key={child.id}
               node={child}
               depth={depth + 1}
+              isMobile={isMobile}
               activeDocId={activeDocId}
               viewMode={viewMode}
               expandedIds={expandedIds}
@@ -223,6 +240,8 @@ function TreeNodeItem({
 
 export function Sidebar({
   open,
+  isMobile,
+  onClose,
   width,
   onWidthChange,
   tree,
@@ -242,6 +261,15 @@ export function Sidebar({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(["welcome-lark-docs"])
   );
+
+  useEffect(() => {
+    if (!isMobile || !open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMobile, open, onClose]);
 
   useEffect(() => {
     if (!activeDocId) return;
@@ -294,19 +322,26 @@ export function Sidebar({
     window.addEventListener("mouseup", onUp);
   };
 
-  if (!open) return null;
+  if (!isMobile && !open) return null;
 
   const navBtn = (active: boolean) =>
-    `flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13.5px] transition-colors cursor-pointer ${
+    `flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 md:py-1.5 text-[14px] md:text-[13.5px] transition-colors cursor-pointer ${
       active
         ? "bg-[#EBF1FF] text-[#3370FF] font-medium"
-        : "text-[#1F2329] hover:bg-[#EFF0F1]"
+        : "text-[#1F2329] hover:bg-[#EFF0F1] active:bg-[#E5E6EB]"
     }`;
 
-  return (
+  const asideContent = (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-r border-[#DEE0E3] bg-[#F5F6F7] select-none"
-      style={{ width }}
+      aria-hidden={isMobile ? !open : undefined}
+      className={
+        isMobile
+          ? `fixed inset-y-0 left-0 z-50 flex h-dvh w-[82vw] max-w-[300px] flex-col border-r border-[#DEE0E3] bg-[#F5F6F7] shadow-2xl select-none safe-top safe-bottom transition-transform duration-200 ease-out ${
+              open ? "translate-x-0" : "-translate-x-full pointer-events-none"
+            }`
+          : "relative flex h-full shrink-0 flex-col border-r border-[#DEE0E3] bg-[#F5F6F7] select-none"
+      }
+      style={isMobile ? undefined : { width }}
     >
       {/* Workspace Header */}
       <div className="flex items-center justify-between px-3.5 pt-3.5 pb-2">
@@ -321,14 +356,27 @@ export function Sidebar({
             <div className="text-[11px] text-[#8F959E]">个人知识库</div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => onCreateDoc(null)}
-          title="新建文档"
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-white border border-[#DEE0E3] text-[#1F2329] hover:border-[#3370FF] hover:text-[#3370FF] transition-colors cursor-pointer shadow-2xs"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onCreateDoc(null)}
+            title="新建文档"
+            className="flex h-8 w-8 md:h-7 md:w-7 items-center justify-center rounded-lg bg-white border border-[#DEE0E3] text-[#1F2329] hover:border-[#3370FF] hover:text-[#3370FF] transition-colors cursor-pointer shadow-2xs"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          {isMobile && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="关闭侧边栏"
+              aria-label="关闭侧边栏"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search Trigger */}
@@ -336,13 +384,13 @@ export function Sidebar({
         <button
           type="button"
           onClick={onOpenSearch}
-          className="flex w-full items-center justify-between rounded-lg border border-[#DEE0E3] bg-white px-2.5 py-1.5 text-xs text-[#8F959E] hover:border-[#3370FF]/50 transition-colors cursor-pointer"
+          className="flex w-full items-center justify-between rounded-lg border border-[#DEE0E3] bg-white px-2.5 py-2 md:py-1.5 text-xs text-[#8F959E] hover:border-[#3370FF]/50 transition-colors cursor-pointer"
         >
           <span className="flex items-center gap-1.5">
             <Search className="h-3.5 w-3.5" />
             搜索文档...
           </span>
-          <kbd className="rounded bg-[#F5F6F7] px-1.5 py-0.5 font-mono text-[10px] text-[#8F959E]">
+          <kbd className="hidden md:inline-block rounded bg-[#F5F6F7] px-1.5 py-0.5 font-mono text-[10px] text-[#8F959E]">
             ⌘K
           </kbd>
         </button>
@@ -385,18 +433,19 @@ export function Sidebar({
           type="button"
           onClick={() => onCreateDoc(null)}
           title="新建根文档"
-          className="rounded p-0.5 text-[#8F959E] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
+          className="rounded p-1 md:p-0.5 text-[#8F959E] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-1 space-y-0.5">
         {tree.map((node) => (
           <TreeNodeItem
             key={node.id}
             node={node}
             depth={0}
+            isMobile={isMobile}
             activeDocId={activeDocId}
             viewMode={viewMode}
             expandedIds={expandedIds}
@@ -416,7 +465,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onOpenTrash}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors cursor-pointer ${
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 md:py-1.5 text-[13.5px] md:text-[13px] transition-colors cursor-pointer ${
             trashOpen
               ? "bg-[#EBF1FF] text-[#3370FF] font-medium"
               : "text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329]"
@@ -427,11 +476,28 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Resize Handle */}
-      <div
-        onMouseDown={startResize}
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#3370FF]/40 transition-colors"
-      />
+      {/* Resize Handle (Desktop only) */}
+      {!isMobile && (
+        <div
+          onMouseDown={startResize}
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#3370FF]/40 transition-colors"
+        />
+      )}
     </aside>
+  );
+
+  if (!isMobile) return asideContent;
+
+  return (
+    <>
+      <div
+        aria-hidden={!open}
+        onClick={onClose}
+        className={`fixed inset-0 z-40 bg-black/35 backdrop-blur-[1px] transition-opacity duration-200 ${
+          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      />
+      {asideContent}
+    </>
   );
 }

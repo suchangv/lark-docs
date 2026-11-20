@@ -25,6 +25,7 @@ import { countWords, formatRelativeTime } from "../utils/docTree";
 import { BlockHandle } from "./BlockHandle";
 import { EditorBubbleMenu } from "./EditorBubbleMenu";
 import { COVER_PRESETS, CoverPicker, EmojiPicker } from "./EmojiCoverPickers";
+import { MobileEditorToolbar } from "./MobileEditorToolbar";
 import { OutlineToc } from "./OutlineToc";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 
@@ -33,6 +34,9 @@ const lowlight = createLowlight(common);
 interface DocEditorProps {
   doc: Doc;
   wideMode: boolean;
+  isMobile: boolean;
+  mobileOutlineOpen: boolean;
+  onMobileOutlineOpenChange: (open: boolean) => void;
   onChangeDoc: (
     docId: string,
     patch: Partial<Pick<Doc, "title" | "emoji" | "cover" | "content" | "wordCount">>
@@ -43,6 +47,9 @@ interface DocEditorProps {
 export function DocEditor({
   doc,
   wideMode,
+  isMobile,
+  mobileOutlineOpen,
+  onMobileOutlineOpenChange,
   onChangeDoc,
   onEditorReady,
 }: DocEditorProps) {
@@ -60,11 +67,25 @@ export function DocEditor({
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const editorWrapperRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
   const docIdRef = useRef(doc.id);
   docIdRef.current = doc.id;
   const outlineRef = useRef<OutlineItem[]>([]);
   const outlineTimerRef = useRef<number | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
+
+  const resizeTitleTextarea = useCallback(() => {
+    const el = titleInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    resizeTitleTextarea();
+    window.addEventListener("resize", resizeTitleTextarea);
+    return () => window.removeEventListener("resize", resizeTitleTextarea);
+  }, [doc.id, doc.emoji, title, wideMode, isMobile, resizeTitleTextarea]);
 
   const parsedContent = (() => {
     if (!doc.content) return { type: "doc", content: [{ type: "paragraph" }] };
@@ -318,10 +339,14 @@ export function DocEditor({
       {/* Cover Banner */}
       {doc.cover && (
         <div
-          className="group/cover relative h-44 w-full shrink-0"
+          className="group/cover relative h-32 sm:h-44 w-full shrink-0"
           style={{ background: doc.cover }}
         >
-          <div className="absolute right-6 bottom-3 flex items-center gap-2 opacity-0 group-hover/cover:opacity-100 transition-opacity">
+          <div
+            className={`absolute right-3 bottom-2.5 sm:right-6 sm:bottom-3 flex items-center gap-2 transition-opacity ${
+              coverPickerOpen ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover/cover:opacity-100"
+            }`}
+          >
             <div className="relative">
               <button
                 type="button"
@@ -351,19 +376,23 @@ export function DocEditor({
 
       {/* Main Document Container */}
       <div
-        className={`mx-auto px-14 sm:px-20 pb-32 transition-all duration-200 ${
+        className={`mx-auto px-4 sm:px-10 md:px-16 lg:px-20 pb-36 md:pb-32 transition-all duration-200 ${
           wideMode ? "max-w-6xl" : "max-w-3xl"
-        } ${doc.cover ? "pt-6" : "pt-14"}`}
+        } ${doc.cover ? "pt-4 sm:pt-6" : "pt-6 sm:pt-14"}`}
       >
         {/* Document Header (Hover actions + Emoji + Title) */}
         <div className="group/header relative mb-6">
-          {/* Hover Quick Add Bar */}
-          <div className="mb-2 flex items-center gap-2 opacity-0 group-hover/header:opacity-100 transition-opacity">
+          {/* Hover / Mobile Quick Add Bar */}
+          <div
+            className={`mb-2 flex items-center gap-2 transition-opacity ${
+              emojiPickerOpen ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover/header:opacity-100"
+            }`}
+          >
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setEmojiPickerOpen((v) => !v)}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
+                className="flex items-center gap-1 rounded-md px-2.5 py-1.5 sm:px-2 sm:py-1 text-xs text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
               >
                 <Smile className="h-3.5 w-3.5" />
                 {doc.emoji ? "更换图标" : "添加图标"}
@@ -384,7 +413,7 @@ export function DocEditor({
                   onClick={() =>
                     onChangeDoc(doc.id, { cover: COVER_PRESETS[0].value })
                   }
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
+                  className="flex items-center gap-1 rounded-md px-2.5 py-1.5 sm:px-2 sm:py-1 text-xs text-[#646A73] hover:bg-[#EFF0F1] hover:text-[#1F2329] cursor-pointer"
                 >
                   <ImageIcon className="h-3.5 w-3.5" />
                   添加封面
@@ -394,13 +423,13 @@ export function DocEditor({
           </div>
 
           {/* Emoji + Title */}
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2.5 sm:gap-3">
             {doc.emoji && (
               <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setEmojiPickerOpen((v) => !v)}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl text-4xl hover:bg-[#F5F6F7] transition-colors cursor-pointer"
+                  className="flex h-10 w-10 text-3xl sm:h-12 sm:w-12 sm:text-4xl items-center justify-center rounded-xl hover:bg-[#F5F6F7] transition-colors cursor-pointer"
                   title="更换图标"
                 >
                   {doc.emoji}
@@ -415,11 +444,14 @@ export function DocEditor({
               </div>
             )}
 
-            <input
+            <textarea
+              ref={titleInputRef}
+              rows={1}
               value={title}
               onChange={(e) => {
-                setTitle(e.target.value);
-                onChangeDoc(doc.id, { title: e.target.value });
+                const next = e.target.value.replace(/\r?\n/g, " ");
+                setTitle(next);
+                onChangeDoc(doc.id, { title: next });
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -428,7 +460,7 @@ export function DocEditor({
                 }
               }}
               placeholder="无标题文档"
-              className="w-full bg-transparent text-[32px] font-bold leading-tight tracking-tight text-[#1F2329] placeholder-[#C9CDD4] outline-none"
+              className="w-full resize-none overflow-hidden bg-transparent text-2xl sm:text-[32px] font-bold leading-snug sm:leading-tight tracking-tight text-[#1F2329] placeholder-[#C9CDD4] outline-none"
             />
           </div>
 
@@ -441,42 +473,42 @@ export function DocEditor({
 
         {/* Table Quick Toolbar */}
         {editor && editor.isActive("table") && (
-          <div className="mb-3 flex flex-wrap items-center gap-1 rounded-lg border border-[#DEE0E3] bg-[#F5F6F7] px-2.5 py-1.5 text-xs text-[#1F2329]">
-            <TableIcon className="mr-1 h-3.5 w-3.5 text-[#3370FF]" />
+          <div className="mb-3 flex items-center gap-1 overflow-x-auto no-scrollbar whitespace-nowrap sm:flex-wrap rounded-lg border border-[#DEE0E3] bg-[#F5F6F7] px-2.5 py-1.5 text-xs text-[#1F2329]">
+            <TableIcon className="mr-1 h-3.5 w-3.5 shrink-0 text-[#3370FF]" />
             <button
               type="button"
               onClick={() => editor.chain().focus().addRowAfter().run()}
-              className="rounded px-2 py-0.5 hover:bg-white cursor-pointer"
+              className="shrink-0 rounded px-2.5 py-1 sm:px-2 sm:py-0.5 hover:bg-white cursor-pointer"
             >
               + 行
             </button>
             <button
               type="button"
               onClick={() => editor.chain().focus().deleteRow().run()}
-              className="rounded px-2 py-0.5 hover:bg-white cursor-pointer"
+              className="shrink-0 rounded px-2.5 py-1 sm:px-2 sm:py-0.5 hover:bg-white cursor-pointer"
             >
               - 行
             </button>
-            <div className="mx-1 h-3 w-px bg-[#DEE0E3]" />
+            <div className="mx-1 h-3 w-px shrink-0 bg-[#DEE0E3]" />
             <button
               type="button"
               onClick={() => editor.chain().focus().addColumnAfter().run()}
-              className="rounded px-2 py-0.5 hover:bg-white cursor-pointer"
+              className="shrink-0 rounded px-2.5 py-1 sm:px-2 sm:py-0.5 hover:bg-white cursor-pointer"
             >
               + 列
             </button>
             <button
               type="button"
               onClick={() => editor.chain().focus().deleteColumn().run()}
-              className="rounded px-2 py-0.5 hover:bg-white cursor-pointer"
+              className="shrink-0 rounded px-2.5 py-1 sm:px-2 sm:py-0.5 hover:bg-white cursor-pointer"
             >
               - 列
             </button>
-            <div className="mx-1 h-3 w-px bg-[#DEE0E3]" />
+            <div className="mx-1 h-3 w-px shrink-0 bg-[#DEE0E3]" />
             <button
               type="button"
               onClick={() => editor.chain().focus().deleteTable().run()}
-              className="flex items-center gap-1 rounded px-2 py-0.5 text-[#F54A45] hover:bg-[#FFF0F0] cursor-pointer"
+              className="flex shrink-0 items-center gap-1 rounded px-2.5 py-1 sm:px-2 sm:py-0.5 text-[#F54A45] hover:bg-[#FFF0F0] cursor-pointer"
             >
               <Trash2 className="h-3 w-3" /> 删除表格
             </button>
@@ -485,8 +517,8 @@ export function DocEditor({
 
         {/* Editor Area */}
         <div ref={editorWrapperRef} className="lark-editor relative">
-          {editor && <EditorBubbleMenu editor={editor} />}
-          {editor && (
+          {editor && <EditorBubbleMenu editor={editor} isMobile={isMobile} />}
+          {editor && !isMobile && (
             <BlockHandle
               editor={editor}
               containerRef={editorWrapperRef}
@@ -516,12 +548,29 @@ export function DocEditor({
       )}
       </div>
 
+      {/* Mobile Bottom Editor Toolbar */}
+      {isMobile && editor && (
+        <MobileEditorToolbar
+          editor={editor}
+          onOpenSlashAt={(pos, coords) =>
+            setSlashState({
+              open: true,
+              position: coords,
+              query: "",
+              range: { from: pos, to: pos },
+            })
+          }
+        />
+      )}
+
       {/* Right Tree Outline TOC */}
       <OutlineToc
         docId={doc.id}
         items={outline}
         activeId={activeHeadingId}
         onSelect={scrollToHeading}
+        mobileOpen={mobileOutlineOpen}
+        onMobileOpenChange={onMobileOutlineOpenChange}
       />
     </div>
   );

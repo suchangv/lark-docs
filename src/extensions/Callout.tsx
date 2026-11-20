@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const CALLOUT_THEMES: Record<string, { bg: string; border: string; label: string; dot: string }> = {
   blue: { bg: "bg-[#EBF1FF]/70", border: "border-[#BACEFD]", label: "蓝色", dot: "bg-[#3370FF]" },
@@ -14,38 +14,71 @@ const QUICK_EMOJIS = ["💡", "📌", "⚠️", "✅", "🔥", "📘", "🎯", "
 
 function CalloutView({ node, updateAttributes }: NodeViewProps) {
   const [showEmoji, setShowEmoji] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const colorKey = (node.attrs.color as string) || "blue";
   const emoji = (node.attrs.emoji as string) || "💡";
   const theme = CALLOUT_THEMES[colorKey] ?? CALLOUT_THEMES.blue;
 
+  useEffect(() => {
+    if (!showEmoji) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as globalThis.Node)) {
+        setShowEmoji(false);
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [showEmoji]);
+
   return (
     <NodeViewWrapper
-      className={`group/callout relative my-3 flex items-start gap-3 rounded-lg border px-4 py-3 transition-colors ${theme.bg} ${theme.border}`}
+      className={`group/callout relative my-3 flex items-start gap-2.5 sm:gap-3 rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 transition-colors ${theme.bg} ${theme.border}`}
     >
-      <div className="relative select-none pt-0.5" contentEditable={false}>
+      <div ref={pickerRef} className="relative select-none pt-0.5" contentEditable={false}>
         <button
           type="button"
           onClick={() => setShowEmoji((v) => !v)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-lg hover:bg-black/5 transition-colors cursor-pointer"
-          title="切换图标"
+          className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md text-lg hover:bg-black/5 transition-colors cursor-pointer"
+          title="切换图标或背景色"
         >
           {emoji}
         </button>
         {showEmoji && (
-          <div className="absolute left-0 top-8 z-30 flex w-44 flex-wrap gap-1 rounded-lg border border-[#DEE0E3] bg-white p-2 shadow-lg">
-            {QUICK_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => {
-                  updateAttributes({ emoji: e });
-                  setShowEmoji(false);
-                }}
-                className="flex h-7 w-7 items-center justify-center rounded hover:bg-[#EFF0F1] text-base cursor-pointer"
-              >
-                {e}
-              </button>
-            ))}
+          <div className="absolute left-0 top-9 z-30 w-48 max-w-[calc(100vw-40px)] rounded-xl border border-[#DEE0E3] bg-white p-2.5 shadow-lg">
+            <div className="mb-1.5 text-[11px] font-medium text-[#8F959E]">图标</div>
+            <div className="flex flex-wrap gap-1">
+              {QUICK_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => {
+                    updateAttributes({ emoji: e });
+                    setShowEmoji(false);
+                  }}
+                  className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded hover:bg-[#EFF0F1] text-base cursor-pointer"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            <div className="my-2 h-px bg-[#EFF0F1]" />
+            <div className="mb-1.5 text-[11px] font-medium text-[#8F959E]">背景颜色</div>
+            <div className="flex items-center gap-2">
+              {Object.entries(CALLOUT_THEMES).map(([key, item]) => (
+                <button
+                  key={key}
+                  type="button"
+                  title={item.label}
+                  onClick={() => {
+                    updateAttributes({ color: key });
+                    setShowEmoji(false);
+                  }}
+                  className={`h-5 w-5 rounded-full ${item.dot} cursor-pointer transition-transform ${
+                    colorKey === key ? "ring-2 ring-offset-1 ring-[#3370FF] scale-110" : "opacity-75 hover:opacity-100"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -55,7 +88,7 @@ function CalloutView({ node, updateAttributes }: NodeViewProps) {
       </div>
 
       <div
-        className="flex items-center gap-1 opacity-0 transition-opacity group-hover/callout:opacity-100 select-none pt-1"
+        className="hidden md:flex items-center gap-1 opacity-0 transition-opacity group-hover/callout:opacity-100 select-none pt-1"
         contentEditable={false}
       >
         {Object.entries(CALLOUT_THEMES).map(([key, item]) => (

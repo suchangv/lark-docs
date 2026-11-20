@@ -13,6 +13,13 @@
     --lark-text-muted: #8f959e;
   }
 
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
       "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial,
@@ -20,7 +27,26 @@
     color: var(--lark-text);
     background-color: var(--lark-bg);
     overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
   }
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Custom thin scrollbars like Feishu/Lark */
@@ -47,6 +73,8 @@
   line-height: 1.75;
   color: #1f2329;
   caret-color: #3370ff;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .lark-editor .ProseMirror > * + * {
@@ -221,6 +249,7 @@
   padding: 0.15em 0.4em;
   font-size: 0.875em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
 }
 
 /* Code Block */
@@ -293,6 +322,7 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 
 /* Images */
@@ -309,6 +339,14 @@
 }
 
 /* Tables */
+.lark-editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.9rem 0;
+  max-width: 100%;
+  border-radius: 6px;
+}
+
 .lark-editor .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
@@ -316,6 +354,10 @@
   margin: 0.9rem 0;
   overflow: hidden;
   border-radius: 6px;
+}
+
+.lark-editor .ProseMirror .tableWrapper table {
+  margin: 0;
 }
 
 .lark-editor .ProseMirror td,
@@ -354,4 +396,70 @@
   width: 4px;
   background-color: #3370ff;
   pointer-events: none;
+}
+
+.tippy-box {
+  max-width: calc(100vw - 16px) !important;
+}
+
+@media (max-width: 767px) {
+  .lark-editor .ProseMirror table {
+    table-layout: auto;
+    min-width: 100%;
+    width: max-content;
+  }
+
+  .lark-editor .ProseMirror td,
+  .lark-editor .ProseMirror th {
+    min-width: 100px;
+    max-width: 240px;
+    padding: 8px 10px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .lark-editor .ProseMirror ul[data-type="taskList"] li > label {
+    padding: 4px;
+    margin: -4px;
+    margin-top: calc(0.25rem - 4px);
+  }
+
+  .lark-editor .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 639px) {
+  .lark-editor .ProseMirror {
+    font-size: 15.5px;
+    min-height: 280px;
+  }
+
+  .lark-editor .ProseMirror h1 {
+    font-size: 1.5rem;
+  }
+
+  .lark-editor .ProseMirror h2 {
+    font-size: 1.3rem;
+  }
+
+  .lark-editor .ProseMirror h3 {
+    font-size: 1.125rem;
+  }
+
+  .lark-editor .ProseMirror h4 {
+    font-size: 1rem;
+  }
+
+  .lark-editor .ProseMirror ul:not([data-type="taskList"]),
+  .lark-editor .ProseMirror ol {
+    padding-left: 1.25rem;
+  }
+
+  .lark-editor .ProseMirror pre {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.8125rem;
+    -webkit-overflow-scrolling: touch;
+  }
 }
