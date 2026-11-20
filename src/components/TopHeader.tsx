@@ -91,7 +91,7 @@ export function TopHeader({
   const parentCrumb = breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2] : null;
 
   return (
-    <header className="safe-top flex min-h-12 shrink-0 items-center justify-between gap-2 border-b border-[#DEE0E3] bg-white px-2.5 sm:px-3.5">
+    <header className="safe-top relative z-30 flex min-h-12 shrink-0 items-center justify-between gap-2 border-b border-[#DEE0E3] bg-white px-2.5 sm:px-3.5">
       {/* Left: Sidebar toggle + Breadcrumbs + Save status */}
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
         <button

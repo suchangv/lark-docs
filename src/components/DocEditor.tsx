@@ -331,10 +331,25 @@ export function DocEditor({
   };
 
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-white">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      {/* Mobile Top Editor Toolbar (docked below TopHeader) */}
+      {isMobile && editor && (
+        <MobileEditorToolbar
+          editor={editor}
+          onOpenSlashAt={(pos, coords) =>
+            setSlashState({
+              open: true,
+              position: coords,
+              query: "",
+              range: { from: pos, to: pos },
+            })
+          }
+        />
+      )}
+
       <div
         ref={scrollContainerRef}
-        className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-white"
+        className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-white"
       >
       {/* Cover Banner */}
       {doc.cover && (
@@ -376,7 +391,7 @@ export function DocEditor({
 
       {/* Main Document Container */}
       <div
-        className={`mx-auto px-4 sm:px-10 md:px-16 lg:px-20 pb-36 md:pb-32 transition-all duration-200 ${
+        className={`mx-auto px-4 sm:px-10 md:px-16 lg:px-20 pb-24 md:pb-32 transition-all duration-200 ${
           wideMode ? "max-w-6xl" : "max-w-3xl"
         } ${doc.cover ? "pt-4 sm:pt-6" : "pt-6 sm:pt-14"}`}
       >
@@ -547,21 +562,6 @@ export function DocEditor({
         />
       )}
       </div>
-
-      {/* Mobile Bottom Editor Toolbar */}
-      {isMobile && editor && (
-        <MobileEditorToolbar
-          editor={editor}
-          onOpenSlashAt={(pos, coords) =>
-            setSlashState({
-              open: true,
-              position: coords,
-              query: "",
-              range: { from: pos, to: pos },
-            })
-          }
-        />
-      )}
 
       {/* Right Tree Outline TOC */}
       <OutlineToc

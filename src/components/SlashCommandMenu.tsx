@@ -280,15 +280,16 @@ export function SlashCommandMenu({
   const left = Math.max(12, Math.min(position.left, vv.width - menuWidth - 12));
   const vvTop = vv.offsetTop;
   const vvBottom = vv.offsetTop + vv.height;
-  const bottomReserve = vv.width < 768 ? 58 : 12;
+  const topReserve = vv.width < 768 && vv.height > 360 ? 92 : 12;
+  const bottomReserve = 12;
   const spaceBelow = vvBottom - position.top - bottomReserve;
   const anchorTopOfCursor = position.top - 30;
-  const spaceAbove = anchorTopOfCursor - vvTop - 12;
+  const spaceAbove = anchorTopOfCursor - vvTop - topReserve;
   const flipUp = spaceBelow < 200 && spaceAbove > spaceBelow;
   const maxHeight = Math.max(120, Math.min(320, flipUp ? spaceAbove : spaceBelow));
   const top = flipUp
-    ? Math.min(vvBottom - bottomReserve, Math.max(vvTop + 12 + maxHeight, anchorTopOfCursor))
-    : Math.max(vvTop + 12, Math.min(position.top, vvBottom - maxHeight - bottomReserve));
+    ? Math.min(vvBottom - bottomReserve, Math.max(vvTop + topReserve + maxHeight, anchorTopOfCursor))
+    : Math.max(vvTop + topReserve, Math.min(position.top, vvBottom - maxHeight - bottomReserve));
 
   return (
     <div

@@ -23,7 +23,6 @@ import {
   Undo2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useVisualViewport } from "../hooks/useViewport";
 
 interface MobileEditorToolbarProps {
   editor: Editor;
@@ -62,7 +61,6 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
   const [headingMenuOpen, setHeadingMenuOpen] = useState(false);
   const [blockMenuOpen, setBlockMenuOpen] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const { keyboardInset } = useVisualViewport();
 
   useEffect(() => {
     const syncState = () => {
@@ -75,7 +73,12 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
       setBlockMenuOpen(false);
     };
     const onFocus = () => setIsFocused(true);
-    const onBlur = () => setIsFocused(false);
+    const onBlur = () => {
+      setIsFocused(false);
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
 
     editor.on("selectionUpdate", onSelectionUpdate);
     editor.on("transaction", syncState);
@@ -182,7 +185,7 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
   };
 
   const btnCls = (active = false, disabled = false) =>
-    `flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer ${
+    `flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer ${
       disabled
         ? "opacity-35 pointer-events-none text-[#8F959E]"
         : active
@@ -193,16 +196,13 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
   return (
     <div
       ref={toolbarRef}
-      style={{ bottom: keyboardInset }}
-      className={`fixed inset-x-0 z-30 border-t border-[#DEE0E3] bg-white/95 backdrop-blur shadow-[0_-2px_10px_rgba(0,0,0,0.04)] md:hidden ${
-        keyboardInset === 0 ? "safe-bottom" : ""
-      }`}
+      className="relative z-20 shrink-0 border-b border-[#EFF0F1] bg-[#FAFAFA]/95 backdrop-blur md:hidden"
     >
       {/* Heading Switcher Popover */}
       {headingMenuOpen && (
         <div
           onMouseDown={(e) => e.preventDefault()}
-          className="absolute bottom-full left-3 mb-2 z-40 w-40 rounded-xl border border-[#DEE0E3] bg-white p-1.5 shadow-xl"
+          className="absolute top-full left-3 mt-1.5 z-40 w-40 rounded-xl border border-[#DEE0E3] bg-white p-1.5 shadow-xl"
         >
           {HEADING_OPTIONS.map((opt) => {
             const selected =
@@ -238,7 +238,7 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
       {blockMenuOpen && (
         <div
           onMouseDown={(e) => e.preventDefault()}
-          className="absolute bottom-full right-3 mb-2 z-40 w-40 rounded-xl border border-[#DEE0E3] bg-white p-1.5 shadow-xl"
+          className="absolute top-full right-3 mt-1.5 z-40 w-40 rounded-xl border border-[#DEE0E3] bg-white p-1.5 shadow-xl"
         >
           <button
             type="button"
@@ -280,7 +280,7 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
         </div>
       )}
 
-      <div className="flex h-11 items-center px-1.5">
+      <div className="flex h-10 items-center px-1.5">
         {/* Pinned Insert Block Button */}
         <button
           type="button"
@@ -288,12 +288,12 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
           aria-label="插入块"
           onMouseDown={(e) => e.preventDefault()}
           onClick={handleOpenInsertMenu}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EBF1FF] text-[#3370FF] active:bg-[#D6E4FF] cursor-pointer"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EBF1FF] text-[#3370FF] active:bg-[#D6E4FF] cursor-pointer"
         >
           <Plus className="h-4 w-4" />
         </button>
 
-        <div className="mx-1 h-5 w-px shrink-0 bg-[#DEE0E3]" />
+        <div className="mx-1 h-4 w-px shrink-0 bg-[#DEE0E3]" />
 
         {/* Horizontally Scrollable Formatting Strip */}
         <div className="flex flex-1 items-center gap-0.5 overflow-x-auto no-scrollbar px-0.5">
@@ -328,7 +328,7 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
               setHeadingMenuOpen((v) => !v);
               setBlockMenuOpen(false);
             }}
-            className={`flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold cursor-pointer ${
+            className={`flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold cursor-pointer ${
               headingMenuOpen || activeHeadingLevel
                 ? "bg-[#EBF1FF] text-[#3370FF]"
                 : "text-[#1F2329] active:bg-[#EFF0F1]"
@@ -471,14 +471,14 @@ export function MobileEditorToolbar({ editor, onOpenSlashAt }: MobileEditorToolb
         {/* Dismiss Keyboard Button */}
         {isFocused && (
           <>
-            <div className="mx-1 h-5 w-px shrink-0 bg-[#DEE0E3]" />
+            <div className="mx-1 h-4 w-px shrink-0 bg-[#DEE0E3]" />
             <button
               type="button"
               title="收起键盘"
               aria-label="收起键盘"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.commands.blur()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#646A73] active:bg-[#EFF0F1] cursor-pointer"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#646A73] active:bg-[#EFF0F1] cursor-pointer"
             >
               <ChevronDown className="h-4 w-4" />
             </button>
